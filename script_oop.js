@@ -4,90 +4,107 @@
  * * ToDowka OOP
  */
 
+//* в конструктор передаем строки классов
 class Todo {
-    constructor(form, input, todoList, todoCompleted) {
-        this.form = document.querySelector(form);
-        this.input = document.querySelector(input);
-        this.todoList = document.querySelector(todoList);
-        this.todoCompleted = document.querySelector(todoCompleted);
-        this.todoData = new Map(JSON.parse(localStorage.getItem('todolist-key'))); //* сразуже загружаем и создаем коллекцию массив двойных массивов
-    }
+  constructor(form, input, todoList, todoCompleted, todoContainer) {
+    this.form = document.querySelector(form);
+    this.input = document.querySelector(input);
+    this.todoList = document.querySelector(todoList);
+    this.todoCompleted = document.querySelector(todoCompleted);
+    this.todoContainer = document.querySelector(todoContainer); //todo перенести в аргумент
+    this.todoData = new Map(JSON.parse(localStorage.getItem('todolist-key'))); //* сразуже загружаем и создаем коллекцию массив двойных массивов
+  }
 
-    addToStorage() {
-        localStorage.setItem('todolist-key', JSON.stringify([...this.todoData]));
-    }
+  addToStorage() {
+    localStorage.setItem('todolist-key', JSON.stringify([...this.todoData])); //добавить в localStorage преобразованую Map колекцию
+  }
 
-    render() {
-        this.todoList.textContent = '';
-        this.todoCompleted.textContent = '';
-        this.todoData.forEach(this.createItem, this); //* передаем контекст
-        this.addToStorage();
-    }
+  render() {
+    this.todoList.textContent = ''; //очистить невыполненных
+    this.todoCompleted.textContent = ''; //очистить список выполненных
+    // this.todoData.forEach(this.createItem, this); //* передаем контекст
+    this.todoData.forEach((item) => this.createItem(item)); //* или использовать стрелочную функцию
+    this.addToStorage();
+  }
 
-    createItem(todo) {
-        const li = document.createElement('li');
-        li.classList.add('todo-item');
-        li.insertAdjacentHTML('beforeend', `
-            <span class="text-todo">${todo.value}</span>
+  createItem(item) {
+    const li = document.createElement('li'); //создать элемент
+    li.classList.add('todo-item');
+    li.key = item.key; //**** добавить свойство ключ к каждому элементу todo-item
+    li.insertAdjacentHTML('beforeend',`
+            <span class="text-todo">${item.value}</span>
             <div class="todo-buttons">
                 <button class="todo-remove"></button>
                 <button class="todo-complete"></button>
             </div>
-        `);
+      `); //добавить элемент
 
-        if (todo.completed) {
-            this.todoCompleted.append(li);
-        } else {
-            this.todoList.append(li);
-        }
+    if (item.completed) {
+      this.todoCompleted.append(li);
+    } else {
+      this.todoList.append(li);
     }
+  }
 
-    addTodo(e) {
-        console.log(e);
-        console.log(this);
-
-        e.preventDefault();
-        if (this.input.value.trim()) { //empty?
-            const newTodo = {
-                value: this.input.value,
-                completed: true,
-                // completed: false,
-                key: this.generateKey()
-            };
-            console.log(newTodo.key);
-            this.todoData.set(newTodo.key, newTodo);
-            this.render();
-        }
+  addTodo(event) {
+    event.preventDefault();
+    if (this.input.value.trim()) {
+      // проверка на пустое поле
+      const newTodo = {
+        value: this.input.value.trim(), // обрезать пробелы
+        // completed: true, // ? если дело выполнено
+        completed: false, // ? если дело невыполнено
+        key: this.generateKey(), // сгенерировать псевдоуникальный ключ
+      };
+      this.todoData.set(newTodo.key, newTodo);
+      this.render();
+      this.input.value = ''; //после всего очистить поле ввода
+    } else {
+      alert('Поле добавления дела не может быть пустым');
     }
+  }
 
+  generateKey() {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  }
 
-    generateKey() {
-        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    }
+  deleteItem(todoItem) {
+    todoItem.remove(); // удалить элемент из верстки
+    this.todoData.delete(todoItem.key);
+    this.addToStorage();
+    // this.render();
+  }
 
+  completedItem(todoItem) {
+    this.todoData.forEach((item) => {
+      if (item.key === todoItem.key) {
+        item.completed = !item.completed; // false -> true инвертируем
+      }
+    });
+    this.addToStorage();
+    this.render();
+  }
 
-    deleteItem() {
-        //todo найти на который нажали удалить из памяти и удалить из Map
-    }
+  handler() {
+    //* делегирование
+    this.todoContainer.addEventListener('click', (event) => {
+      const target = event.target;
+      const todoItem = target.closest('.todo-item'); //высплываем ищем итем по которому кликнули
 
-    completedItem() {
-        //todo найти элем перебрать fe найти тот на который нажали
-    }
+      if (target.matches('.todo-complete')) {
+        this.completedItem(todoItem);
+      } else if (target.matches('.todo-remove')) {
+        this.deleteItem(todoItem);
+      }
+    });
+  }
 
-    handler() {
-        //todo делегирование 
-        // опредилить на какую кнопку какого элемента нажали
-        // и вызвать
-        // todo this.deleteItem();
-        // todo this.completedItem();
-    }
-
-    init() {
-        this.form.addEventListener('submit', this.addTodo.bind(this));
-        this.render();
-    }
+  init() {
+    this.render();
+    this.form.addEventListener('submit', this.addTodo.bind(this)); //слушатель на кнопку submit добавить
+    this.handler(); //остальные слушатели делегируются в этой функии
+  }
 }
 
-
-const todo = new Todo('.todo-control', '.header-input', '.todo-list', '.todo-completed');
+const todo = new Todo('.todo-control', '.header-input', '.todo-list', '.todo-completed', '.todo-container');
 todo.init();
